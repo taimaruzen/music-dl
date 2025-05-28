@@ -39,6 +39,27 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [isDark, setIsDark] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
+
+  const handleShare = async (track: Track) => {
+    const url = `${window.location.origin}/bgm/${track.file}`;
+    const data = { title: track.title, text: track.description, url };
+    if (navigator.share) {
+      try {
+        await navigator.share(data);
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      const twitter =
+        'https://twitter.com/intent/tweet?text=' +
+        encodeURIComponent(track.title) +
+        '&url=' +
+        encodeURIComponent(url);
+      window.open(twitter, '_blank');
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('downloadCounts');
@@ -48,8 +69,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const savedFav = localStorage.getItem('favorites');
+    if (savedFav) {
+      setFavorites(JSON.parse(savedFav));
+    }
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('downloadCounts', JSON.stringify(counts));
   }, [counts]);
+
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }, [favorites]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -60,13 +92,23 @@ export default function Home() {
     }
   }, [isDark]);
 
-  const filtered = tracks.filter((t) =>
-    (t.title + t.description).toLowerCase().includes(search.toLowerCase())
+  const filtered = tracks.filter(
+    (t) =>
+      (t.title + t.description)
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
+      (!onlyFavorites || favorites.includes(t.file))
   );
   const categories = Array.from(new Set(filtered.map((t) => t.category)));
 
   const handleDownload = (file: string) => {
     setCounts((prev) => ({ ...prev, [file]: (prev[file] || 0) + 1 }));
+  };
+
+  const toggleFavorite = (file: string) => {
+    setFavorites((prev) =>
+      prev.includes(file) ? prev.filter((f) => f !== file) : [...prev, file]
+    );
   };
 
   return (
@@ -90,6 +132,12 @@ export default function Home() {
           onChange={(e) => setSearch(e.target.value)}
           className="border rounded px-3 py-2 text-sm focus:outline-none"
         />
+        <button
+          onClick={() => setOnlyFavorites(!onlyFavorites)}
+          className="px-3 py-1 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded self-start"
+        >
+          {onlyFavorites ? 'すべて表示' : 'お気に入りのみ'}
+        </button>
         {categories.map((cat) => (
           <section key={cat} className="flex flex-col gap-2">
             <h2 className="text-lg font-bold mb-2">{cat}</h2>
@@ -101,7 +149,15 @@ export default function Home() {
                     key={track.file}
                     className="bg-gray-100 dark:bg-gray-800 rounded p-4 shadow transform transition duration-300 hover:scale-105 flex flex-col gap-2"
                   >
-                    <h3 className="font-semibold">{track.title}</h3>
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold">{track.title}</h3>
+                      <button
+                        onClick={() => toggleFavorite(track.file)}
+                        className="text-yellow-400 text-xl"
+                      >
+                        {favorites.includes(track.file) ? '★' : '☆'}
+                      </button>
+                    </div>
                     <p className="text-sm text-gray-600 dark:text-gray-300">
                       {track.description}
                     </p>
@@ -118,6 +174,12 @@ export default function Home() {
                     >
                       ダウンロード ({counts[track.file] || 0})
                     </a>
+                    <button
+                      onClick={() => handleShare(track)}
+                      className="px-3 py-1 text-sm bg-green-500 hover:bg-green-600 text-white rounded"
+                    >
+                      共有
+                    </button>
                   </div>
                 ))}
             </div>
