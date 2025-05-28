@@ -195,6 +195,7 @@ export default function Home() {
             Go to nextjs.org →
           </a>
         </footer>
+        <footer className="text-center text-sm text-gray-500 py-4">© 2025 music-dl</footer>
       </div>
     </>
   );
