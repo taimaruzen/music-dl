@@ -61,24 +61,6 @@ export default function Home() {
     }
   };
 
-  const handleShare = async (track: Track) => {
-    const url = `${window.location.origin}/bgm/${track.file}`;
-    const data = { title: track.title, text: track.description, url };
-    if (navigator.share) {
-      try {
-        await navigator.share(data);
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      const twitter =
-        'https://twitter.com/intent/tweet?text=' +
-        encodeURIComponent(track.title) +
-        '&url=' +
-        encodeURIComponent(url);
-      window.open(twitter, '_blank');
-    }
-  };
 
   useEffect(() => {
     const saved = localStorage.getItem('downloadCounts');
