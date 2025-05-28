@@ -40,6 +40,25 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
+  const handleShare = async (track: Track) => {
+    const url = `${window.location.origin}/bgm/${track.file}`;
+    const data = { title: track.title, text: track.description, url };
+    if (navigator.share) {
+      try {
+        await navigator.share(data);
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      const twitter =
+        'https://twitter.com/intent/tweet?text=' +
+        encodeURIComponent(track.title) +
+        '&url=' +
+        encodeURIComponent(url);
+      window.open(twitter, '_blank');
+    }
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem('downloadCounts');
     if (saved) {
@@ -118,6 +137,12 @@ export default function Home() {
                     >
                       ダウンロード ({counts[track.file] || 0})
                     </a>
+                    <button
+                      onClick={() => handleShare(track)}
+                      className="px-3 py-1 text-sm bg-green-500 hover:bg-green-600 text-white rounded"
+                    >
+                      共有
+                    </button>
                   </div>
                 ))}
             </div>
