@@ -8,6 +8,7 @@ const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
+
 export type Track = {
   title: string;
   description: string;
@@ -19,7 +20,8 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-const tracks: Track[] = [
+
+const initialTracks: Track[] = [
   {
     title: "ゆったりBGM",
     description: "穏やかな気分にさせてくれる曲です。",
@@ -46,21 +48,68 @@ const tracks: Track[] = [
   },
 ];
 
+const TEXTS = {
+  ja: {
+    siteTitle: '音楽ダウンロードサイト',
+    search: '検索...',
+    download: 'ダウンロード',
+    downloaded: '回ダウンロードされました',
+    played: '回再生されました',
+    add: '追加',
+    title: 'タイトル',
+    description: '説明',
+    category: 'カテゴリ',
+    file: 'ファイル名（.mp3）',
+    noMatch: '一致する楽曲はありません',
+    all: 'すべて',
+  },
+  en: {
+    siteTitle: 'Music Download Site',
+    search: 'Search...',
+    download: 'Download',
+    downloaded: ' downloads',
+    played: ' plays',
+    add: 'Add',
+    title: 'Title',
+    description: 'Description',
+    category: 'Category',
+    file: 'File name (.mp3)',
+    noMatch: 'No matching tracks',
+    all: 'All',
+  },
+} as const;
+
 export default function Home() {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [isDark, setIsDark] = useState(false);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [lang, setLang] = useState<'ja' | 'en'>('ja');
+  const [trackList, setTrackList] = useState<Track[]>(initialTracks);
+  const [category, setCategory] = useState<string>(TEXTS.ja.all);
+  const [downloadCounts, setDownloadCounts] = useState<Record<string, number>>({});
+  const [playCounts, setPlayCounts] = useState<Record<string, number>>({});
+  const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [form, setForm] = useState({ title: '', description: '', category: '', file: '' });
 
   useEffect(() => {
-    const saved = localStorage.getItem("downloadCounts");
-    if (saved) {
-      setCounts(JSON.parse(saved));
-    }
+    const d = localStorage.getItem('downloadCounts');
+    if (d) setDownloadCounts(JSON.parse(d));
+    const p = localStorage.getItem('playCounts');
+    if (p) setPlayCounts(JSON.parse(p));
+    const f = localStorage.getItem('favorites');
+    if (f) setFavorites(JSON.parse(f));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("downloadCounts", JSON.stringify(counts));
-  }, [counts]);
+    localStorage.setItem('downloadCounts', JSON.stringify(downloadCounts));
+  }, [downloadCounts]);
+
+  useEffect(() => {
+    localStorage.setItem('playCounts', JSON.stringify(playCounts));
+  }, [playCounts]);
+
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }, [favorites]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -71,13 +120,31 @@ export default function Home() {
     }
   }, [isDark]);
 
-  const filtered = tracks.filter((t) =>
-    (t.title + t.description).toLowerCase().includes(search.toLowerCase())
-  );
-  const categories = Array.from(new Set(filtered.map((t) => t.category)));
+  const filtered = trackList.filter((t) => {
+    const matchCat = category === TEXTS[lang].all || t.category === category;
+    const matchText = (t.title + t.description).toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchText;
+  });
+
+  const filteredCategories = Array.from(new Set(filtered.map((t) => t.category)));
+  const categories = Array.from(new Set(trackList.map((t) => t.category)));
 
   const handleDownload = (file: string) => {
-    setCounts((prev) => ({ ...prev, [file]: (prev[file] || 0) + 1 }));
+    setDownloadCounts((prev) => ({ ...prev, [file]: (prev[file] || 0) + 1 }));
+  };
+
+  const handlePlay = (file: string) => {
+    setPlayCounts((prev) => ({ ...prev, [file]: (prev[file] || 0) + 1 }));
+  };
+
+  const toggleFavorite = (file: string) => {
+    setFavorites((prev) => ({ ...prev, [file]: !prev[file] }));
+  };
+
+  const addTrack = () => {
+    if (!form.title || !form.file) return;
+    setTrackList([...trackList, { ...form }]);
+    setForm({ title: '', description: '', category: '', file: '' });
   };
 
   return (
@@ -89,112 +156,124 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${styles.page} ${geistSans.variable} ${geistMono.variable}`}>
-        <main className={styles.main}>
-          <div className="max-w-3xl mx-auto p-4">
-            <h1 className="text-2xl font-bold mb-4 text-center">音楽ダウンロードサイト</h1>
-            <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 py-2 mb-6 flex items-center gap-4">
-              <input
-                type="text"
-                placeholder="検索..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none"
-              />
-              <label className="flex items-center cursor-pointer ml-4">
-                <span className="mr-2 text-sm">Dark</span>
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={isDark}
-                  onChange={(e) => setIsDark(e.target.checked)}
-                />
-                <div className="w-10 h-6 bg-gray-300 rounded-full p-1 flex items-center">
-                  <div
-                    className={`bg-white w-4 h-4 rounded-full transform transition ${
-                      isDark ? "translate-x-4" : ""
-                    }`}
-                  />
-                </div>
-              </label>
+        <header className="fixed top-0 w-full z-50 bg-white dark:bg-gray-900 shadow">
+          <div className="max-w-screen-md mx-auto flex items-center justify-between p-4">
+            <div className="flex items-center gap-2">
+              <Image src="/logo.png" alt="サイトロゴ" width={32} height={32} />
+              <span className="font-bold">{TEXTS[lang].siteTitle}</span>
             </div>
-            {categories.map((cat) => (
-              <section key={cat} className="bg-gray-100 dark:bg-gray-800 rounded p-4 mb-6">
-                <h2 className="text-lg font-bold mb-3">{cat}</h2>
-                <div className="flex flex-col gap-4">
-                  {filtered
-                    .filter((t) => t.category === cat)
-                    .map((track) => (
-                      <div key={track.file} className="flex flex-wrap items-center gap-4">
-                        <div className="flex-1 min-w-[150px]">
-                          <h3 className="font-semibold">{track.title}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
-                            {track.description}
-                          </p>
-                        </div>
-                        <audio
-                          controls
-                          className="flex-1 min-w-[180px]"
-                          src={`/bgm/${track.file}`}
-                        />
-                        <a
-                          href={`/bgm/${track.file}`}
-                          download
-                          onClick={() => handleDownload(track.file)}
-                          className="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded"
-                        >
-                          ダウンロード ({counts[track.file] || 0})
-                        </a>
-                      </div>
-                    ))}
-                </div>
-              </section>
+            <div className="flex items-center gap-4">
+              <button onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')} className="text-sm border px-2 py-1 rounded">
+                {lang === 'ja' ? 'EN' : 'JA'}
+              </button>
+              <button onClick={() => setIsDark(!isDark)} className="text-2xl">
+                {isDark ? '🌙' : '🌞'}
+              </button>
+            </div>
+          </div>
+        </header>
+        <main className="pt-20 max-w-screen-md mx-auto p-4 flex flex-col gap-6">
+          <input
+            type="text"
+            placeholder={TEXTS[lang].search}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="border rounded px-3 py-2 text-sm focus:outline-none"
+          />
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {[TEXTS[lang].all, ...categories].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`px-3 py-1 rounded border whitespace-nowrap ${
+                  category === cat ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800'
+                }`}
+              >
+                {cat}
+              </button>
             ))}
           </div>
+          {filtered.length === 0 && (
+            <p className="text-center text-gray-500">{TEXTS[lang].noMatch}</p>
+          )}
+          {filteredCategories.map((cat) => (
+            <section key={cat} className="flex flex-col gap-2">
+              <h2 className="text-lg font-bold mb-2">{cat}</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {filtered
+                  .filter((t) => t.category === cat)
+                  .map((track) => (
+                    <div
+                      key={track.file}
+                      className="bg-gray-100 dark:bg-gray-800 rounded p-4 shadow transform transition duration-300 hover:scale-105 flex flex-col gap-2"
+                    >
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold">{track.title}</h3>
+                        <button onClick={() => toggleFavorite(track.file)} className="text-xl">
+                          {favorites[track.file] ? '♥' : '♡'}
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{track.description}</p>
+                      <audio
+                        controls
+                        className="w-full"
+                        src={`/bgm/${track.file}`}
+                        onPlay={() => handlePlay(track.file)}
+                      />
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {(playCounts[track.file] || 0)} {TEXTS[lang].played}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {(downloadCounts[track.file] || 0)} {TEXTS[lang].downloaded}
+                      </p>
+                      <a
+                        href={`/bgm/${track.file}`}
+                        download
+                        onClick={() => handleDownload(track.file)}
+                        className="mt-auto px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded text-center"
+                      >
+                        {TEXTS[lang].download}
+                      </a>
+                    </div>
+                  ))}
+              </div>
+            </section>
+          ))}
+          <section className="border-t pt-4 mt-6 flex flex-col gap-2">
+            <h2 className="text-lg font-bold">{TEXTS[lang].add}</h2>
+            <input
+              type="text"
+              placeholder={TEXTS[lang].title}
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              className="border rounded px-2 py-1 text-sm"
+            />
+            <input
+              type="text"
+              placeholder={TEXTS[lang].description}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="border rounded px-2 py-1 text-sm"
+            />
+            <input
+              type="text"
+              placeholder={TEXTS[lang].category}
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="border rounded px-2 py-1 text-sm"
+            />
+            <input
+              type="text"
+              placeholder={TEXTS[lang].file}
+              value={form.file}
+              onChange={(e) => setForm({ ...form, file: e.target.value })}
+              className="border rounded px-2 py-1 text-sm"
+            />
+            <button onClick={addTrack} className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-sm">
+              {TEXTS[lang].add}
+            </button>
+          </section>
         </main>
-        <footer className={styles.footer}>
-          <a
-            href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/file.svg"
-              alt="File icon"
-              width={16}
-              height={16}
-            />
-            Learn
-          </a>
-          <a
-            href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/window.svg"
-              alt="Window icon"
-              width={16}
-              height={16}
-            />
-            Examples
-          </a>
-          <a
-            href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/globe.svg"
-              alt="Globe icon"
-              width={16}
-              height={16}
-            />
-            Go to nextjs.org →
-          </a>
-        </footer>
         <footer className="text-center text-sm text-gray-500 py-4">© 2025 music-dl</footer>
       </div>
     </>
